@@ -14,26 +14,36 @@ namespace crawlernet
         static void Main(string[] args)
         {
             var key = args[0].ToString();
-            var reg = new Regex($"<a[^<]*href=\"([^<\"]*)\"[^<]*({key}[^<]*)",RegexOptions.IgnoreCase|RegexOptions.Multiline|RegexOptions.Compiled|RegexOptions.IgnorePatternWhitespace);
+            var reg = new Regex($"<a[^<]*href=\"([^<\"]*)\"[^<]*>([^<]*{key}[^<]*)",
+            RegexOptions.IgnoreCase|
+            RegexOptions.Multiline|
+            RegexOptions.Compiled|
+            RegexOptions.IgnorePatternWhitespace);
 
             var client = new HttpClient();
-            var token = new SemaphoreSlim(5);
             var links = new SortedSet<string>();
-            var index = Enumerable.Range(1, 700).ToArray();
+            var index = Enumerable.Range(402, 402).ToArray();
             var part = Partitioner.Create<int>(index);
             Parallel.ForEach(part, page => 
             {
-
-                var task = client.GetStringAsync($"http://n2.lufi99.org/pw/thread.php?fid=22&page={page}");
-                var matches = reg.Matches(task.Result);
-                foreach (Match match in matches)
+                try
                 {
-                    if (!links.Contains(match.Groups[1].ToString()))
+                    var task = client.GetStringAsync($"http://n2.lufi99.org/pw/thread.php?fid=22&page={page}");
+                    var matches = reg.Matches(task.Result);
+                    foreach (Match match in matches)
                     {
-                        Console.WriteLine($"page ${page}: yes http://n2.lufi99.org/pw/{match.Groups[1]} {match.Groups[2]}");
-                        links.Add(match.Groups[1].ToString());
+                        if (!links.Contains(match.Groups[1].ToString()))
+                        {
+                            Console.WriteLine($"page {page}: yes http://n2.lufi99.org/pw/{match.Groups[1]} {match.Groups[2]}");
+                            links.Add(match.Groups[1].ToString());
+                        }
+                        
                     }
+                }
+                catch (System.Exception)
+                {
                     
+                    //do nothing
                 }
 
             });

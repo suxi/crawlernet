@@ -22,7 +22,7 @@ namespace crawlernet
 
             var client = new HttpClient();
             var links = new SortedSet<string>();
-            var index = Enumerable.Range(402, 402).ToArray();
+            var index = Enumerable.Range(1, 700).ToArray();
             var part = Partitioner.Create<int>(index);
             Parallel.ForEach(part, page => 
             {
@@ -34,16 +34,16 @@ namespace crawlernet
                     {
                         if (!links.Contains(match.Groups[1].ToString()))
                         {
-                            Console.WriteLine($"page {page}: yes http://n2.lufi99.org/pw/{match.Groups[1]} {match.Groups[2]}");
+                            Console.WriteLine($"page {page}: http://n2.lufi99.org/pw/{match.Groups[1]} {match.Groups[2]}");
                             links.Add(match.Groups[1].ToString());
                         }
                         
                     }
                 }
-                catch (System.Exception)
+                catch (System.Exception e)
                 {
                     
-                    //do nothing
+                    Console.WriteLine($"page {page}:err {e.Message}");
                 }
 
             });

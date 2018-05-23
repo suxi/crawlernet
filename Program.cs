@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Threading.Tasks.Dataflow;
 
 namespace crawlernet
 {
@@ -13,6 +14,7 @@ namespace crawlernet
     {
         static void Main(string[] args)
         {
+
             var key = args[0].ToString();
             var reg = new Regex($"<a[^<]*href=\"([^<\"]*)\"[^<]*>([^<]*{key}[^<]*)",
             RegexOptions.IgnoreCase|
@@ -24,29 +26,33 @@ namespace crawlernet
             var links = new SortedSet<string>();
             var index = Enumerable.Range(1, 700).ToArray();
             var part = Partitioner.Create<int>(index);
+            var download = new TransformBlock<string, string>(async uri =>
+            {
+                return await client.GetStringAsync(uri);
+            }, new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 20 });
+
+            var grep = new ActionBlock<string>(text => 
+            {
+                var matches = reg.Matches(text);
+                foreach (Match match in matches)
+                {
+                    if (!links.Contains(match.Groups[1].ToString()))
+                    {
+                        Console.WriteLine($"http://n2.lufi99.org/pw/{match.Groups[1]} {match.Groups[2]}");
+                        links.Add(match.Groups[1].ToString());
+                    }
+
+                }
+            }, new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 100 });
+
+            download.LinkTo(grep, new DataflowLinkOptions { PropagateCompletion = true });
             Parallel.ForEach(part, page => 
             {
-                try
-                {
-                    var task = client.GetStringAsync($"http://n2.lufi99.org/pw/thread.php?fid=22&page={page}");
-                    var matches = reg.Matches(task.Result);
-                    foreach (Match match in matches)
-                    {
-                        if (!links.Contains(match.Groups[1].ToString()))
-                        {
-                            Console.WriteLine($"page {page}: http://n2.lufi99.org/pw/{match.Groups[1]} {match.Groups[2]}");
-                            links.Add(match.Groups[1].ToString());
-                        }
-                        
-                    }
-                }
-                catch (System.Exception e)
-                {
-                    
-                    Console.WriteLine($"page {page}:err {e.Message}");
-                }
-
+                download.Post($"http://n2.lufi99.org/pw/thread.php?fid=22&page={page}");
             });
+
+            grep.Completion.Wait();
+            return;
         }
     }
 }

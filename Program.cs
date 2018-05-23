@@ -23,12 +23,21 @@ namespace crawlernet
             RegexOptions.IgnorePatternWhitespace);
 
             var client = new HttpClient();
-            var links = new SortedSet<string>();
+            var links = new ConcurrentBag<string>();
             var index = Enumerable.Range(1, 700).ToArray();
             var part = Partitioner.Create<int>(index);
             var download = new TransformBlock<string, string>(async uri =>
             {
-                return await client.GetStringAsync(uri);
+                try
+                {
+                    return await client.GetStringAsync(uri);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"err: {e.Message} {uri}");
+                    return "";
+                }
+                
             }, new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 20 });
 
             var grep = new ActionBlock<string>(text => 
@@ -50,7 +59,7 @@ namespace crawlernet
             {
                 download.Post($"http://n2.lufi99.org/pw/thread.php?fid=22&page={page}");
             });
-
+            download.Complete();
             grep.Completion.Wait();
             return;
         }

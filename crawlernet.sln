@@ -3,26 +3,26 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.27703.2000
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "crawlernet", "crawlernet.csproj", "{A380A550-5E29-40C8-8B75-734E5C340BEE}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "crawlernet", "crawlernet\crawlernet.csproj", "{7ECF1FE1-7ADD-4F2E-8A66-E4E795DEC25D}"
 EndProject
 Global
-	GlobalSection(Performance) = preSolution
-		HasPerformanceSessions = true
-	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{A380A550-5E29-40C8-8B75-734E5C340BEE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{A380A550-5E29-40C8-8B75-734E5C340BEE}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{A380A550-5E29-40C8-8B75-734E5C340BEE}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{A380A550-5E29-40C8-8B75-734E5C340BEE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7ECF1FE1-7ADD-4F2E-8A66-E4E795DEC25D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7ECF1FE1-7ADD-4F2E-8A66-E4E795DEC25D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7ECF1FE1-7ADD-4F2E-8A66-E4E795DEC25D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7ECF1FE1-7ADD-4F2E-8A66-E4E795DEC25D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {7031C744-0277-4841-8D6A-CAA26DCC8DC9}
+	EndGlobalSection
+	GlobalSection(Performance) = preSolution
+		HasPerformanceSessions = true
 	EndGlobalSection
 EndGlobal

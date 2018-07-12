@@ -7,7 +7,7 @@
             "type": "process",
             "args": [
                 "build",
-                "${workspaceFolder}/crawlernet/crawlernet.csproj"
+                "${workspaceFolder}/crawlernet.csproj"
             ],
             "problemMatcher": "$msCompile"
         }

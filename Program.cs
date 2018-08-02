@@ -27,7 +27,7 @@ namespace crawlernet
             var part = Partitioner.Create<int>(index);
 
             var redis = ConnectionMultiplexer.Connect("localhost");
-            var TIMEOUT = new TimeSpan(0,20,0);
+            var TIMEOUT = new TimeSpan(2,0,0);
             var download = new TransformBlock<string, string>(async uri =>
             {
                 try
@@ -75,7 +75,7 @@ namespace crawlernet
 
                 var htmlDoc = new HtmlAgilityPack.HtmlDocument();
                 htmlDoc.LoadHtml(text);
-                var items = htmlDoc.DocumentNode.SelectNodes("//a[@href]/span/parent::*");
+                var items = htmlDoc.DocumentNode.SelectNodes("//a[@href and parent::h3]");
                 var reg = new Regex(
                     $"{key}[-]?\\d{{0,4}}",
                     RegexOptions.IgnoreCase | RegexOptions.IgnorePatternWhitespace | RegexOptions.Compiled);
@@ -88,7 +88,7 @@ namespace crawlernet
                             var match = reg.Match(item.InnerText);
                             if (match.Success)
                             {
-                                var link = $"http://n2.lufi99.org/{item.Attributes["href"].Value}";
+                                var link = $"http://s3.99hiya.biz/pw/{item.Attributes["href"].Value}".Replace("&amp;","&");
                                 var title = item.InnerText;
                                 var name = match.Captures.First();
                                 var pic = "";
@@ -107,9 +107,10 @@ namespace crawlernet
                                             pic = img.Attributes["src"].Value;
                                         }
                                     }
+                                    catch(Exception) {}
                                     finally
                                     {
-                                        Console.WriteLine($"{link} {pic} {title}");
+                                        Console.WriteLine($"{link} {title} {pic}");
                                     }
                                 }                                
                             }
@@ -154,8 +155,8 @@ namespace crawlernet
 
             Parallel.ForEach(part, page => 
             {
-                //              http://n2.lufi99.org/forum.php?mod=forumdisplay&fid=22&page=2
-                download.Post($"http://n2.lufi99.org/forum.php?mod=forumdisplay&fid=22&page={page}");
+                //              http://s3.97xzl.com/pw/thread.php?fid=22
+                download.Post($"http://s3.97xzl.com/pw/thread.php?fid=22&page={page}");
             });
             download.Complete();
             grep.Completion.Wait();

@@ -23,7 +23,12 @@ namespace crawlernet
             var client = new HttpClient(){Timeout=new TimeSpan(0,3,0)};
             client.DefaultRequestHeaders.Add("User-Agent","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.140 Safari/537.36 Edge/17.17134");
             var links = new ConcurrentBag<string>();
-            var index = Enumerable.Range(1, 500).ToArray();
+            var range = 500;
+            if (args.Length > 1)
+            {
+               int.TryParse(args[1],out range);
+            }
+            var index = Enumerable.Range(1, range).ToArray();
             var part = Partitioner.Create<int>(index);
 
             var redis = ConnectionMultiplexer.Connect("localhost");
@@ -36,7 +41,7 @@ namespace crawlernet
                     var value = await db.StringGetAsync(uri);
                     if (value.IsNullOrEmpty)
                     {
-                        Thread.Sleep(3*1000);
+                        Thread.Sleep(1*1000);
                         var text = await client.GetStringAsync(uri);
                         if (text.IndexOf("ROBOTS") > 0)
                         {
@@ -65,7 +70,7 @@ namespace crawlernet
                 
             }, new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 1 });
 
-            var grep = new TransformManyBlock<string,(string,string)>(async text => 
+            var grep = new TransformManyBlock<string,(string,string)>(text => 
             {
                 var l = new List<(string,string)>();
                 if (text.Length == 0)
@@ -89,29 +94,30 @@ namespace crawlernet
                             if (match.Success)
                             {
                                 var link = $"http://s3.99hiya.biz/pw/{item.Attributes["href"].Value}".Replace("&amp;","&");
-                                var title = item.InnerText;
+                                var title = item.InnerText.Replace("&nbsp;"," ");
                                 var name = match.Captures.First();
                                 var pic = "";
                                 if (!links.Contains(link))
                                 {
                                     links.Add(link);
-                                    try
-                                    {
-                                        var res = await client.GetStringAsync(link);
-                                        var imgDoc = new HtmlAgilityPack.HtmlDocument();
-                                        imgDoc.LoadHtml(res);
-                                        var img = imgDoc.DocumentNode.SelectSingleNode("//img[@class='zoom']");
+                                    Console.WriteLine($"{link} {title} {pic}");
+                                    // try
+                                    // {
+                                    //     var res = await client.GetStringAsync(link);
+                                    //     var imgDoc = new HtmlAgilityPack.HtmlDocument();
+                                    //     imgDoc.LoadHtml(res);
+                                    //     var img = imgDoc.DocumentNode.SelectSingleNode("//img[@onload and @onclick and @border]");
 
-                                        if (img != null)
-                                        {
-                                            pic = img.Attributes["src"].Value;
-                                        }
-                                    }
-                                    catch(Exception) {}
-                                    finally
-                                    {
-                                        Console.WriteLine($"{link} {title} {pic}");
-                                    }
+                                    //     if (img != null)
+                                    //     {
+                                    //         pic = img.Attributes["src"].Value;
+                                    //     }
+                                    // }
+                                    // catch(Exception) {}
+                                    // finally
+                                    // {
+                                    //     Console.WriteLine($"{link} {title} {pic}");
+                                    // }
                                 }                                
                             }
 

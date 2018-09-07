@@ -32,7 +32,7 @@ namespace crawlernet
             var part = Partitioner.Create<int>(index);
 
             var redis = ConnectionMultiplexer.Connect("localhost");
-            var TIMEOUT = new TimeSpan(2,0,0);
+            var TIMEOUT = new TimeSpan(0,5,0);
             var download = new TransformBlock<string, string>(async uri =>
             {
                 try
@@ -166,7 +166,7 @@ namespace crawlernet
             });
             download.Complete();
             grep.Completion.Wait();
-            Console.WriteLine("搜索完成");
+            Console.WriteLine($"搜索完成({links.Count})");
             return;
         }
     }

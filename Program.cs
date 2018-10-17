@@ -93,7 +93,7 @@ namespace crawlernet
                             var match = reg.Match(item.InnerText);
                             if (match.Success)
                             {
-                                var link = $"http://s3.99hiya.biz/pw/{item.Attributes["href"].Value}".Replace("&amp;","&");
+                                var link = $"http://n2.lufi99.club/pw/{item.Attributes["href"].Value}".Replace("&amp;","&");
                                 var title = item.InnerText.Replace("&nbsp;"," ");
                                 var name = match.Captures.First();
                                 var pic = "";
@@ -159,11 +159,14 @@ namespace crawlernet
             download.LinkTo(grep, new DataflowLinkOptions { PropagateCompletion = true });
             grep.LinkTo(save, new DataflowLinkOptions { PropagateCompletion = true });
 
-            Parallel.ForEach(part, page => 
+            
+            // Parallel.ForEach(part, page => 
+            foreach (var page in Enumerable.Range(1, range))
             {
                 //              http://s3.97xzl.com/pw/thread.php?fid=22
-                download.Post($"http://s3.97xzl.com/pw/thread.php?fid=22&page={page}");
-            });
+                // http://n2.lufi99.club/pw/thread-htm-fid-22-page-1.html
+                download.Post($"http://n2.lufi99.club/pw/thread-htm-fid-22-page-{page}.html");
+            };
             download.Complete();
             grep.Completion.Wait();
             Console.WriteLine($"搜索完成({links.Count})");

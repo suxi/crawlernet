@@ -84,6 +84,7 @@ namespace crawlernet
                 var reg = new Regex(
                     $"{key}[-]?\\d{{0,4}}",
                     RegexOptions.IgnoreCase | RegexOptions.IgnorePatternWhitespace | RegexOptions.Compiled);
+                var bangoReg = new Regex(@"[a-zA-Z]{2,5}-?\d{3,5}[ABab]?",RegexOptions.IgnorePatternWhitespace | RegexOptions.Compiled);
                 if (items != null)
                 {
                     foreach (var item in items)
@@ -95,12 +96,12 @@ namespace crawlernet
                             {
                                 var link = $"http://n2.lufi99.club/pw/{item.Attributes["href"].Value}".Replace("&amp;","&");
                                 var title = item.InnerText.Replace("&nbsp;"," ");
-                                var name = match.Captures.First();
-                                var pic = "";
+                                var name = bangoReg.Match(title).Value;
+                                var cover = $"http://www.dmm.co.jp/search/=/searchstr={name}";
                                 if (!links.Contains(link))
                                 {
                                     links.Add(link);
-                                    Console.WriteLine($"{link} {title} {pic}");
+                                    Console.WriteLine($"{link} {title} {cover}");
                                     // try
                                     // {
                                     //     var res = await client.GetStringAsync(link);
@@ -160,6 +161,7 @@ namespace crawlernet
             grep.LinkTo(save, new DataflowLinkOptions { PropagateCompletion = true });
 
             
+            var stop = Stopwatch.StartNew();
             // Parallel.ForEach(part, page => 
             foreach (var page in Enumerable.Range(1, range))
             {
@@ -169,7 +171,8 @@ namespace crawlernet
             };
             download.Complete();
             grep.Completion.Wait();
-            Console.WriteLine($"搜索完成({links.Count})");
+            stop.Stop();
+            Console.WriteLine($"[搜索完成(by {links.Count} in {stop.ElapsedMilliseconds:N}ms)]");
             return;
         }
     }

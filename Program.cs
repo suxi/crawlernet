@@ -31,16 +31,46 @@ namespace crawlernet
             var index = Enumerable.Range(1, range).ToArray();
             var part = Partitioner.Create<int>(index);
 
-            var redis = ConnectionMultiplexer.Connect("localhost");
-            var TIMEOUT = new TimeSpan(0,5,0);
+            var TIMEOUT = new TimeSpan(0,15,0);
+            ConnectionMultiplexer redis = null;
+            try
+            {
+                redis = ConnectionMultiplexer.Connect("localhost,connectRetry=0");
+            }
+            catch (System.Exception){}
+
             var download = new TransformBlock<string, string>(async uri =>
             {
                 try
                 {
-                    IDatabase db = redis.GetDatabase();
-                    var value = await db.StringGetAsync(uri);
-                    if (value.IsNullOrEmpty)
+                    if (redis != null)
                     {
+                        IDatabase db = redis.GetDatabase();
+                        var value = await db.StringGetAsync(uri);
+                        if (value.IsNullOrEmpty)
+                        {
+                            Thread.Sleep(1*1000);
+                            var text = await client.GetStringAsync(uri);
+                            if (text.IndexOf("ROBOTS") > 0)
+                            {
+                                Console.WriteLine($"{uri} anti-robots");
+                                return "";
+                            }
+                            else
+                            {
+                                if (await db.StringSetAsync(uri,text))
+                                {
+                                    await db.KeyExpireAsync(uri, TIMEOUT);
+                                }
+                                return text;
+                            }
+                        }
+                        else
+                        {
+                            return value.ToString();
+                        }
+                    }
+                    else{
                         Thread.Sleep(1*1000);
                         var text = await client.GetStringAsync(uri);
                         if (text.IndexOf("ROBOTS") > 0)
@@ -50,17 +80,11 @@ namespace crawlernet
                         }
                         else
                         {
-                            if (await db.StringSetAsync(uri,text))
-                            {
-                                await db.KeyExpireAsync(uri, TIMEOUT);
-                            }
                             return text;
                         }
                     }
-                    else
-                    {
-                        return value.ToString();
-                    }
+
+
                 }
                 catch (Exception e)
                 {

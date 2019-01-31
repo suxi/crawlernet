@@ -17,21 +17,30 @@ namespace crawlernet
     {
         static void Main(string[] args)
         {
-
-            var key = args[0].ToString();
+            var HOST = "http://m2.5y1rsxmzh.xyz/pw/";
+            var key = "";
 
             var client = new HttpClient(){Timeout=new TimeSpan(0,3,0)};
             client.DefaultRequestHeaders.Add("User-Agent","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.140 Safari/537.36 Edge/17.17134");
             var links = new ConcurrentBag<string>();
             var range = 500;
+
             if (args.Length > 1)
             {
-               int.TryParse(args[1],out range);
+                key = args[0].ToString();
+                int.TryParse(args[1],out range);
+            }
+            else if (args.Length == 1){
+                if (!int.TryParse(args[0], out range))
+                {
+                    key = args[0];
+                    range = 500;
+                }
             }
             var index = Enumerable.Range(1, range).ToArray();
             var part = Partitioner.Create<int>(index);
 
-            var TIMEOUT = new TimeSpan(0,15,0);
+            var TIMEOUT = new TimeSpan(0,30,0);
             ConnectionMultiplexer redis = null;
             try
             {
@@ -49,7 +58,7 @@ namespace crawlernet
                         var value = await db.StringGetAsync(uri);
                         if (value.IsNullOrEmpty)
                         {
-                            Thread.Sleep(1*1000);
+                            Thread.Sleep(1 * 200);
                             var text = await client.GetStringAsync(uri);
                             if (text.IndexOf("ROBOTS") > 0)
                             {
@@ -105,8 +114,9 @@ namespace crawlernet
                 var htmlDoc = new HtmlAgilityPack.HtmlDocument();
                 htmlDoc.LoadHtml(text);
                 var items = htmlDoc.DocumentNode.SelectNodes("//a[@href and parent::h3]");
+                var searchPattern = key == "" ? "" : $"{key}[-]?\\d{{0,4}}";
                 var reg = new Regex(
-                    $"{key}[-]?\\d{{0,4}}",
+                    searchPattern,
                     RegexOptions.IgnoreCase | RegexOptions.IgnorePatternWhitespace | RegexOptions.Compiled);
                 var bangoReg = new Regex(@"[a-zA-Z]{2,5}-?\d{3,5}[ABab]?",RegexOptions.IgnorePatternWhitespace | RegexOptions.Compiled);
                 if (items != null)
@@ -118,14 +128,14 @@ namespace crawlernet
                             var match = reg.Match(item.InnerText);
                             if (match.Success)
                             {
-                                var link = $"http://n2.lufi99.club/pw/{item.Attributes["href"].Value}".Replace("&amp;","&");
+                                var link = $"{HOST}{item.Attributes["href"].Value}".Replace("&amp;","&");
                                 var title = item.InnerText.Replace("&nbsp;"," ");
                                 var name = bangoReg.Match(title).Value;
                                 var cover = $"http://www.dmm.co.jp/search/=/searchstr={name}";
                                 if (!links.Contains(link))
                                 {
                                     links.Add(link);
-                                    Console.WriteLine($"{link} {title} {cover}");
+                                    Console.WriteLine($"{link} {title}");
                                     // try
                                     // {
                                     //     var res = await client.GetStringAsync(link);
@@ -133,7 +143,7 @@ namespace crawlernet
                                     //     imgDoc.LoadHtml(res);
                                     //     var img = imgDoc.DocumentNode.SelectSingleNode("//img[@onload and @onclick and @border]");
 
-                                    //     if (img != null)
+                                    //     if (img != null)b
                                     //     {
                                     //         pic = img.Attributes["src"].Value;
                                     //     }
@@ -151,7 +161,7 @@ namespace crawlernet
                     }
                 }
                 return l;
-            }, new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 8});
+            }, new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 1});
 
             var save = new ActionBlock<(string,string)>(async item => {
                 
@@ -191,7 +201,7 @@ namespace crawlernet
             {
                 //              http://s3.97xzl.com/pw/thread.php?fid=22
                 // http://n2.lufi99.club/pw/thread-htm-fid-22-page-1.html
-                download.Post($"http://n2.lufi99.club/pw/thread-htm-fid-22-page-{page}.html");
+                download.Post($"{HOST}thread-htm-fid-22-page-{page}.html");
             };
             download.Complete();
             grep.Completion.Wait();

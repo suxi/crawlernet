@@ -1,17 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp3.0</TargetFramework>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <LangVersion>latest</LangVersion>
+    <OutputType>exe</OutputType>
+    <TargetFramework>netcoreapp6.0</TargetFramework>
+    <PublishTrimmed>true</PublishTrimmed>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="HtmlAgilityPack" Version="1.8.9" />
-    <PackageReference Include="StackExchange.Redis" Version="2.0.513" />
+    <PackageReference Include="HtmlAgilityPack" Version="1.11.36" />
+    <PackageReference Include="StackExchange.Redis" Version="2.2.50" />
   </ItemGroup>
 
 </Project>

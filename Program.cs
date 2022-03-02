@@ -6,17 +6,18 @@ using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks.Dataflow;
+using Microsoft.Data.Sqlite;
 
-var HOST = "https://m3.g126eaf0.link/pw/";
+var HOST = "http://b11.hj97zhx837.xyz/pw/";
 var key = "";
 var FID = 22;
+var page = 1;
+var skip = 0;
 
 var client = new HttpClient { Timeout = new TimeSpan(0, 0, 30) };
 client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Safari/605.1.15");
-var links = new ConcurrentBag<string>();
-var range = 1000;
+var hitExists = false;
 
-var redis = StackExchange.Redis.ConnectionMultiplexer.Connect("localhost");
 foreach (var arg in args)
 {
     if (arg.ToLower().StartsWith("--ln"))
@@ -33,7 +34,8 @@ foreach (var arg in args)
     }
     else if (arg.ToLower().StartsWith("-p"))
     {
-        int.TryParse(arg.Substring(2), out range);
+        var p = int.Parse(arg.Substring(2));
+        skip = (p-1);
     }
     else
     {
@@ -42,37 +44,24 @@ foreach (var arg in args)
 
 }
 
-var index = Enumerable.Range(1, range).ToArray();
-var part = Partitioner.Create<int>(index);
-
 var TIMEOUT = new TimeSpan(0, 3, 0);
 
 var download = new TransformBlock<string, string>(async uri =>
 {
     try
     {
-
-        var db = redis.GetDatabase();
-        if (!db.KeyExists(uri))
+        Thread.Sleep(2 * 1000);
+        var text = await client.GetStringAsync(uri);
+        if (text.IndexOf("ROBOTS") > 0)
         {
-            Thread.Sleep(2 * 1000);
-            var text = await client.GetStringAsync(uri);
-            if (text.IndexOf("ROBOTS") > 0)
-            {
-                Console.WriteLine($"{uri} anti-robots");
-                return "";
-            }
-            else
-            {
-                db.StringSet(uri, text);
-                db.KeyExpire(uri, new TimeSpan(3, 0, 0));
-                return text;
-            }
+            Console.WriteLine($"{uri} anti-robots");
+            return "";
         }
         else
         {
-            return db.StringGet(uri);
+            return text;
         }
+
     }
     catch (Exception e)
     {
@@ -82,58 +71,89 @@ var download = new TransformBlock<string, string>(async uri =>
 
 }, new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 1 });
 
-var grep = new ActionBlock<string>(text =>
+var fetch = new ActionBlock<string>(html =>
 {
-    if (!String.IsNullOrWhiteSpace(text))
+    if (!String.IsNullOrWhiteSpace(html))
     {
         var htmlDoc = new HtmlAgilityPack.HtmlDocument();
-        htmlDoc.LoadHtml(text);
+        htmlDoc.LoadHtml(html);
         var items = htmlDoc.DocumentNode.SelectNodes("//a[@href and parent::h3]");
-        var searchPattern = key == "" ? "" : $"{key}[-]?\\d{{0,4}}";
-        if (FID == 21)
-        {
-            searchPattern = key == "" ? "" : $"{key}";
-        }
-        var reg = new Regex(
-            searchPattern,
-            RegexOptions.IgnoreCase | RegexOptions.IgnorePatternWhitespace | RegexOptions.Compiled);
-        var bangoReg = new Regex(@"[a-zA-Z]{2,5}-?\d{3,5}[ABab]?", RegexOptions.IgnorePatternWhitespace | RegexOptions.Compiled);
         if (items != null)
         {
-            Array.ForEach(items.ToArray(), item =>
-           {
-               if (item.InnerLength > 0 && item.InnerText.Length > 0)
-               {
-                   var match = reg.Match(item.InnerText);
-                   if (match.Success)
-                   {
-                       var link = $"{HOST}{item.Attributes["href"].Value}".Replace("&amp;", "&");
-                       var title = item.InnerText.Replace("&nbsp;", " ");
-                       var name = bangoReg.Match(title).Value;
-                       var cover = $"http://www.dmm.co.jp/search/=/searchstr={name}";
-                       if (!links.Contains(link))
-                       {
-                           links.Add(link);
-                           Console.WriteLine($"【 {link} 】{title}");
-                       }
-                   }
-               }
-           });
+            using (var sqlite = new SqliteConnection("Data Source=1024.db"))
+            {
+                sqlite.Open();
+                Array.ForEach(items.ToArray(), item =>
+                {
+                    var link = $"{item.Attributes["href"].Value}".Replace("&amp;", "&");
+                    var title = item.InnerText.Replace("&nbsp;", " ");
+                    using(var comm = sqlite.CreateCommand())
+                    {
+                        comm.CommandText = @"SELECT count(*) from url where link = $link";
+                        comm.Parameters.AddWithValue("$link",link);
+                        if ((long)comm.ExecuteScalar()! == 0)
+                        {
+                            if (item.Attributes["href"].Value.StartsWith("html_data/"))
+                            {
+                                comm.CommandText = @"INSERT INTO url(link,title) VALUES($link,$title)";
+                                // comm.Parameters.AddWithValue("$link", link);
+                                comm.Parameters.AddWithValue("$title", title);
+                                comm.ExecuteNonQuery();
+                            }
+                        }
+                        else
+                        {
+                            hitExists = true;
+                        }
+                    }
+
+                });
+            }
+
+        }
+        if (!hitExists && page <= 500)
+        {
+            download.Post($"{HOST}thread.php?fid={FID}&page={++page}");
+            Console.WriteLine($"fetch page{page}");
+        }
+        else
+        {
+            download.Complete();
         }
     }
+
 }, new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 1 });
 
-download.LinkTo(grep, new DataflowLinkOptions { PropagateCompletion = true });
+download.LinkTo(fetch, new DataflowLinkOptions { PropagateCompletion = true });
 
+download.Post($"{HOST}thread.php?fid={FID}&page={page}");
+fetch.Completion.Wait();
 
-var stop = Stopwatch.StartNew();
-// Parallel.ForEach(part, page => 
-foreach (var page in Enumerable.Range(1, range))
+var searchPattern = key == "" ? "" : $"{key}[-]?\\d{{0,4}}";
+var reg = new Regex(
+    searchPattern,
+    RegexOptions.IgnoreCase | RegexOptions.IgnorePatternWhitespace | RegexOptions.Compiled);
+
+using (var sqlite = new SqliteConnection("Data Source=1024.db"))
 {
-    download.Post($"{HOST}thread.php?fid={FID}&page={page}");
-};
-download.Complete();
-grep.Completion.Wait();
-stop.Stop();
-Console.WriteLine($"[搜索完成(by {links.Count} in {stop.ElapsedMilliseconds:N}ms)]");
+    sqlite.Open();
+    var comm = sqlite.CreateCommand();
+    comm.CommandText = $"select * from url order by link desc limit {skip*50},50";
+    using (var reader = comm.ExecuteReader())
+    {
+        while(reader.Read())
+        {
+            if (!String.IsNullOrWhiteSpace(reader.GetString(1)))
+            {
+                var match = reg.Match(reader.GetString(1));
+                if (match.Success)
+                {
+                    Console.WriteLine($"【 {HOST}{reader.GetString(0)} 】{reader.GetString(1)}");
+                }
+            }
+        };
+    }    
+}
+
+Console.WriteLine($"[搜索完成]");
 

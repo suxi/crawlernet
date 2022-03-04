@@ -1,14 +1,11 @@
 ﻿using System;
-using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks.Dataflow;
 using Microsoft.Data.Sqlite;
 
-var HOST = "http://b11.hj97zhx837.xyz/pw/";
+var HOST = "http://b11.hjfgczh733.xyz/pw/";//"http://b11.hj97zhx837.xyz/pw/";
 var key = "";
 var FID = 22;
 var page = 1;
@@ -50,7 +47,7 @@ var download = new TransformBlock<string, string>(async uri =>
 {
     try
     {
-        Thread.Sleep(2 * 1000);
+        Thread.Sleep(1 * 1000);
         var text = await client.GetStringAsync(uri);
         if (text.IndexOf("ROBOTS") > 0)
         {
@@ -83,7 +80,7 @@ var fetch = new ActionBlock<string>(html =>
             using (var sqlite = new SqliteConnection("Data Source=1024.db"))
             {
                 sqlite.Open();
-                Array.ForEach(items.ToArray(), item =>
+                Array.ForEach(items.ToArray(), async item =>
                 {
                     var link = $"{item.Attributes["href"].Value}".Replace("&amp;", "&");
                     var title = item.InnerText.Replace("&nbsp;", " ");
@@ -91,14 +88,13 @@ var fetch = new ActionBlock<string>(html =>
                     {
                         comm.CommandText = @"SELECT count(*) from url where link = $link";
                         comm.Parameters.AddWithValue("$link",link);
-                        if ((long)comm.ExecuteScalar()! == 0)
+                        if ((long)(await comm.ExecuteScalarAsync())! == 0)
                         {
                             if (item.Attributes["href"].Value.StartsWith("html_data/"))
                             {
                                 comm.CommandText = @"INSERT INTO url(link,title) VALUES($link,$title)";
-                                // comm.Parameters.AddWithValue("$link", link);
                                 comm.Parameters.AddWithValue("$title", title);
-                                comm.ExecuteNonQuery();
+                                await comm.ExecuteNonQueryAsync();
                             }
                         }
                         else
@@ -119,6 +115,7 @@ var fetch = new ActionBlock<string>(html =>
         else
         {
             download.Complete();
+            Console.WriteLine($"fetch page{page}");
         }
     }
 
@@ -129,28 +126,16 @@ download.LinkTo(fetch, new DataflowLinkOptions { PropagateCompletion = true });
 download.Post($"{HOST}thread.php?fid={FID}&page={page}");
 fetch.Completion.Wait();
 
-var searchPattern = key == "" ? "" : $"{key}[-]?\\d{{0,4}}";
-var reg = new Regex(
-    searchPattern,
-    RegexOptions.IgnoreCase | RegexOptions.IgnorePatternWhitespace | RegexOptions.Compiled);
-
 using (var sqlite = new SqliteConnection("Data Source=1024.db"))
 {
     sqlite.Open();
     var comm = sqlite.CreateCommand();
-    comm.CommandText = $"select * from url order by link desc limit {skip*50},50";
-    using (var reader = comm.ExecuteReader())
+    comm.CommandText = $"select * from url where title like '%{key}%' order by link desc limit {skip*50},50";
+    using (var reader = await comm.ExecuteReaderAsync())
     {
-        while(reader.Read())
+        while(await reader.ReadAsync())
         {
-            if (!String.IsNullOrWhiteSpace(reader.GetString(1)))
-            {
-                var match = reg.Match(reader.GetString(1));
-                if (match.Success)
-                {
-                    Console.WriteLine($"【 {HOST}{reader.GetString(0)} 】{reader.GetString(1)}");
-                }
-            }
+            Console.WriteLine($"【 {HOST}{reader.GetString(0)} 】{reader.GetString(1)}");
         };
     }    
 }

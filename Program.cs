@@ -29,14 +29,15 @@ foreach (var arg in args)
     {
         FID = 21;
     }
-    else if (arg.ToLower().StartsWith("-p"))
+    else if (arg.ToLower().StartsWith("-k"))
     {
-        var p = int.Parse(arg.Substring(2));
-        skip = (p-1);
+        key = arg.Substring(2);
+        
     }
     else
     {
-        key = arg.ToString();
+        var p = int.Parse(arg.ToString());
+        skip = (p-1);
     }
 
 }
@@ -115,7 +116,6 @@ var fetch = new ActionBlock<string>(html =>
         else
         {
             download.Complete();
-            Console.WriteLine($"fetch page{page}");
         }
     }
 
@@ -124,6 +124,7 @@ var fetch = new ActionBlock<string>(html =>
 download.LinkTo(fetch, new DataflowLinkOptions { PropagateCompletion = true });
 
 download.Post($"{HOST}thread.php?fid={FID}&page={page}");
+Console.WriteLine($"fetch page1");
 fetch.Completion.Wait();
 
 using (var sqlite = new SqliteConnection("Data Source=1024.db"))

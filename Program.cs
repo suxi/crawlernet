@@ -10,6 +10,7 @@ var key = "";
 var FID = 22;
 var page = 1;
 var skip = 0;
+var force = false;
 
 var client = new HttpClient { Timeout = new TimeSpan(0, 0, 30) };
 client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Safari/605.1.15");
@@ -17,7 +18,11 @@ var hitExists = false;
 
 foreach (var arg in args)
 {
-    if (arg.ToLower().StartsWith("--ln"))
+    if (arg.ToLower().StartsWith("-f"))
+    {
+        force = true;
+    }
+    else if (arg.ToLower().StartsWith("--ln"))
     {
         FID = 188;
     }
@@ -93,7 +98,7 @@ var fetch = new ActionBlock<string>(html =>
                         {
                             if (item.Attributes["href"].Value.StartsWith("html_data/"))
                             {
-                                comm.CommandText = @"INSERT INTO url(link,title) VALUES($link,$title)";
+                                comm.CommandText = @"INSERT INTO url(link,title) VALUES($link,$title) ON CONFLICT(link) DO UPDATE SET title = $title";
                                 comm.Parameters.AddWithValue("$title", title);
                                 await comm.ExecuteNonQueryAsync();
                             }
@@ -108,7 +113,7 @@ var fetch = new ActionBlock<string>(html =>
             }
 
         }
-        if (!hitExists && page <= 500)
+        if ((!hitExists || force) && page <= 500 )
         {
             download.Post($"{HOST}thread.php?fid={FID}&page={++page}");
             Console.WriteLine($"fetch page{page}");

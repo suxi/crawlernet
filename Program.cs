@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Linq;
+using System.IO;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks.Dataflow;
 using Microsoft.Data.Sqlite;
+using System.Collections.Generic;
 
-var HOST = "http://b11.hjfgczh733.xyz/pw/";//"http://b11.hj97zhx837.xyz/pw/";
+var HOST = "https://b11.hjfgczh733.rocks/pw/";//"http://b11.hj97zhx837.xyz/pw/";
 var key = "";
 var FID = 22;
 var page = 1;
@@ -48,6 +50,57 @@ foreach (var arg in args)
 }
 
 var TIMEOUT = new TimeSpan(0, 3, 0);
+var urls = new Stack<Tuple<string, string>>();
+
+var save = new ActionBlock<Tuple<string,string>>(async link => {
+    if (link.Item1 == "")
+    {
+        return;
+    }
+    using (var sqlite = new SqliteConnection("Data Source=1024.db"))
+    {
+        sqlite.Open();
+        using(var comm = sqlite.CreateCommand())
+        {
+            comm.CommandText = @"INSERT INTO url(link,title) VALUES($link,$title) ON CONFLICT(link) DO UPDATE SET title = $title";
+            comm.Parameters.AddWithValue("$link",link.Item1);
+            comm.Parameters.AddWithValue("$title", link.Item2);
+            await comm.ExecuteNonQueryAsync();
+        }
+    }
+}, new ExecutionDataflowBlockOptions{MaxDegreeOfParallelism=8});
+
+var dump = new TransformBlock<Tuple<string,string>,Tuple<string,string>>( async link => 
+{
+
+    var text = await client.GetStringAsync($"{HOST}{link.Item1}");
+    var htmlDoc = new HtmlAgilityPack.HtmlDocument();
+    htmlDoc.LoadHtml(text);
+    var pic = htmlDoc.DocumentNode.SelectNodes("//img[@onload]");
+    if (pic == null)
+    {
+        return Tuple.Create("","");
+    }
+    var filePath = "./img/" + link.Item1.Substring(link.Item1.LastIndexOf('/')+1).Replace(".html",".jpg");
+    if (!File.Exists(filePath))
+    {
+        using(var st = await client.GetStreamAsync(pic[0].Attributes["src"].Value))
+        {
+            using(var fs = new FileStream("./img/" + link.Item1.Substring(link.Item1.LastIndexOf('/')+1).Replace(".html",".jpg"), FileMode.OpenOrCreate))
+            {
+                await st.CopyToAsync(fs);
+                fs.Close();
+                Console.WriteLine("dump " + pic[0].Attributes["src"].Value);
+                
+            }
+        }        
+    }
+    else
+    {
+        Console.WriteLine("found " + filePath);
+    }
+    return link;
+}, new ExecutionDataflowBlockOptions{MaxDegreeOfParallelism=3});
 
 var download = new TransformBlock<string, string>(async uri =>
 {
@@ -72,7 +125,7 @@ var download = new TransformBlock<string, string>(async uri =>
         return "";
     }
 
-}, new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 1 });
+}, new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 2 });
 
 var fetch = new ActionBlock<string>(html =>
 {
@@ -94,13 +147,12 @@ var fetch = new ActionBlock<string>(html =>
                     {
                         comm.CommandText = @"SELECT count(*) from url where link = $link";
                         comm.Parameters.AddWithValue("$link",link);
-                        if ((long)(await comm.ExecuteScalarAsync())! == 0)
+                        if ((long)(await comm.ExecuteScalarAsync())! == 0 || force)
                         {
                             if (item.Attributes["href"].Value.StartsWith("html_data/"))
                             {
-                                comm.CommandText = @"INSERT INTO url(link,title) VALUES($link,$title) ON CONFLICT(link) DO UPDATE SET title = $title";
-                                comm.Parameters.AddWithValue("$title", title);
-                                await comm.ExecuteNonQueryAsync();
+                                // dump.Post(Tuple.Create(link,title));
+                                urls.Push(Tuple.Create(link,title));
                             }
                         }
                         else
@@ -113,7 +165,7 @@ var fetch = new ActionBlock<string>(html =>
             }
 
         }
-        if ((!hitExists || force) && page <= 500 )
+        if ((!hitExists || force) && page < 5 )
         {
             download.Post($"{HOST}thread.php?fid={FID}&page={++page}");
             Console.WriteLine($"fetch page{page}");
@@ -127,16 +179,26 @@ var fetch = new ActionBlock<string>(html =>
 }, new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 1 });
 
 download.LinkTo(fetch, new DataflowLinkOptions { PropagateCompletion = true });
+dump.LinkTo(save, new DataflowLinkOptions{PropagateCompletion = true});
 
-download.Post($"{HOST}thread.php?fid={FID}&page={page}");
 Console.WriteLine($"fetch page1");
+download.Post($"{HOST}thread.php?fid={FID}&page={page}");
 fetch.Completion.Wait();
+
+while (urls.Count > 0)
+{
+    dump.Post(urls.Pop());
+}
+dump.Complete();
+dump.Completion.Wait();
+save.Completion.Wait();
 
 using (var sqlite = new SqliteConnection("Data Source=1024.db"))
 {
+    var p = key.Length > 0 ? 50 : 200;
     sqlite.Open();
     var comm = sqlite.CreateCommand();
-    comm.CommandText = $"select * from url where title like '%{key}%' order by link desc limit {skip*50},50";
+    comm.CommandText = $"select * from url where title like '%{key}%' order by link desc limit {skip*p},{p}";
     using (var reader = await comm.ExecuteReaderAsync())
     {
         while(await reader.ReadAsync())

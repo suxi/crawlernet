@@ -7,14 +7,14 @@ using System.Threading.Tasks.Dataflow;
 using Microsoft.Data.Sqlite;
 using System.Collections.Generic;
 
-var HOST = "https://x227n.xyz/pw/";//"http://b11.hj97zhx837.xyz/pw/";
+var HOST = "https://mk2207.work/pw/";//"http://b11.hj97zhx837.xyz/pw/";
 var key = "";
 var FID = 22;
 var page = 1;
 var skip = 0;
 var force = false;
 
-var client = new HttpClient(new HttpClientHandler{AllowAutoRedirect = true}) { Timeout = new TimeSpan(0, 0, 30) };
+var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = true }) { Timeout = new TimeSpan(0, 0, 30) };
 client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Safari/605.1.15");
 var hitExists = false;
 
@@ -63,9 +63,10 @@ var save = new ActionBlock<Tuple<string, string>>(async link =>
         sqlite.Open();
         using (var comm = sqlite.CreateCommand())
         {
-            comm.CommandText = @"INSERT INTO url(link,title) VALUES($link,$title) ON CONFLICT(link) DO UPDATE SET title = $title";
+            comm.CommandText = @"INSERT INTO url(link,title,creatd_at) VALUES($link,$title,$date) ON CONFLICT(link) DO UPDATE SET title = $title";
             comm.Parameters.AddWithValue("$link", link.Item1);
             comm.Parameters.AddWithValue("$title", link.Item2);
+            comm.Parameters.AddWithValue("$date", DateTime.Now.ToShortDateString());
             await comm.ExecuteNonQueryAsync();
         }
     }
@@ -136,7 +137,7 @@ var download = new TransformBlock<string, string>(async uri =>
         return "";
     }
 
-}, new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 2 });
+}, new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 1 });
 
 var fetch = new ActionBlock<string>(html =>
 {
@@ -176,7 +177,7 @@ var fetch = new ActionBlock<string>(html =>
             }
 
         }
-        if ((!hitExists || force) && page < 10)
+        if ((!hitExists || force) && page < 35)
         {
             download.Post($"{HOST}thread.php?fid={FID}&page={++page}");
             Console.WriteLine($"fetch page{page}");
@@ -209,12 +210,13 @@ using (var sqlite = new SqliteConnection("Data Source=1024.db"))
     var p = key.Length > 0 ? 50 : 200;
     sqlite.Open();
     var comm = sqlite.CreateCommand();
-    comm.CommandText = $"select * from url where title like '%{key}%' order by link desc limit {skip * p},{p}";
+    comm.CommandText = $"select * from url where title like '%{key}%' or title like '%{key.Replace("-", "")}%' order by link desc limit {skip * p},{p}";
     using (var reader = await comm.ExecuteReaderAsync())
     {
         while (await reader.ReadAsync())
         {
-            Console.WriteLine($"【 {HOST}{reader.GetString(0)} 】{reader.GetString(1)}");
+            var date =  (reader.IsDBNull(2) ? "" : reader.GetString(2));
+            Console.WriteLine($"【 {HOST}{reader.GetString(0)} 】({date}){reader.GetString(1)}");
         };
     }
 }

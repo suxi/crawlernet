@@ -3,12 +3,12 @@
   <PropertyGroup>
     <OutputType>exe</OutputType>
     <Nullable>Enable</Nullable>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net7.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="HtmlAgilityPack" Version="1.11.36" />
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="7.0.0-preview.1.22076.6" />
+    <PackageReference Include="HtmlAgilityPack" Version="1.11.46" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="7.0.4" />
   </ItemGroup>
 
 </Project>

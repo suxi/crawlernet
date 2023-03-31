@@ -331,3 +331,5 @@ ASALocalRun/
 
 # work folder
 img/
+1024.db
+.vscode/

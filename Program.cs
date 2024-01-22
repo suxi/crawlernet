@@ -1,13 +1,7 @@
-﻿using System;
-using System.Linq;
-using System.IO;
-using System.Net.Http;
-using System.Threading;
-using System.Threading.Tasks.Dataflow;
+﻿using System.Threading.Tasks.Dataflow;
 using Microsoft.Data.Sqlite;
-using System.Collections.Generic;
 
-var HOST = "https://mk2207.work/pw/";//"http://b11.hj97zhx837.xyz/pw/";
+var HOST = "https://a2303s.xyz/pw/";//"http://b11.hj97zhx837.xyz/pw/";
 var key = "";
 var FID = 22;
 var page = 1;
@@ -74,7 +68,7 @@ var save = new ActionBlock<Tuple<string, string>>(async link =>
 
 var dump = new TransformBlock<Tuple<string, string>, Tuple<string, string>>(async link =>
 {
-
+    return link;
     var text = await client.GetStringAsync($"{HOST}{link.Item1}");
     var htmlDoc = new HtmlAgilityPack.HtmlDocument();
     htmlDoc.LoadHtml(text);
@@ -84,7 +78,7 @@ var dump = new TransformBlock<Tuple<string, string>, Tuple<string, string>>(asyn
         return Tuple.Create("", "");
     }
     var filePath = "./img/" + link.Item1.Substring(link.Item1.LastIndexOf('/') + 1).Replace(".html", ".jpg");
-    if (!File.Exists(filePath))
+    if (false)
     {
         try
         {
@@ -104,7 +98,7 @@ var dump = new TransformBlock<Tuple<string, string>, Tuple<string, string>>(asyn
         }
         catch (System.Exception e)
         {
-            Console.WriteLine(e.Message);
+            Console.WriteLine($"{pic[0].Attributes["src"].Value} {e.Message}");
         }
     }
     else
